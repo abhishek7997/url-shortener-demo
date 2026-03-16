@@ -1,21 +1,28 @@
 package com.projects.system.urlshortener.entity;
 
+import lombok.Data;
+import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
-@Document("url_mapping")
+@Data
+@Document(collection = "url_mapping")
 public class UrlMapping {
     @Id
-    private String id;
+    private ObjectId id;
     @Field("short_code")
+    @Indexed(unique = true)
     private String shortCode;
     @Field("long_url")
     private String longUrl;
     @Field("created_at")
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
+    @Field("expire_at")
+    private Instant expireAt;
     @Field("hits")
-    private Long hits;
+    private long hits = 0;
 }
