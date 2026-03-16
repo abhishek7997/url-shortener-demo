@@ -8,8 +8,8 @@ import com.projects.system.urlshortener.exception.UrlNotFoundException;
 import com.projects.system.urlshortener.exception.UrlServiceException;
 import com.projects.system.urlshortener.repository.UrlMappingRepository;
 import com.projects.system.urlshortener.util.Base62Convertor;
+import com.projects.system.urlshortener.util.UniqueIdGenerator;
 import io.micrometer.common.util.StringUtils;
-import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -18,19 +18,19 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
-import java.math.BigInteger;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 
 @Service
 public class UrlMappingService {
     private final UrlMappingRepository urlMappingRepository;
     private final MongoTemplate mongoTemplate;
+    private final UniqueIdGenerator idGenerator;
 
     @Autowired
     public UrlMappingService(UrlMappingRepository urlMappingRepository, MongoTemplate mongoTemplate) {
         this.urlMappingRepository = urlMappingRepository;
         this.mongoTemplate = mongoTemplate;
+        this.idGenerator = new UniqueIdGenerator();
     }
 
     public UrlMapping getLongUrlByShortCode(String shortCode) {
@@ -59,7 +59,8 @@ public class UrlMappingService {
 
         String shortCode = shortRequest.customShortCode();
         if (StringUtils.isBlank(shortRequest.customShortCode())) {
-            shortCode = Base62Convertor.convertToBase62(new BigInteger(new ObjectId().toHexString(), 16));
+//            shortCode = Base62Convertor.convertToBase62(new BigInteger(new ObjectId().toHexString(), 16)); // this generates slightly larger strings since ObjectID from mongoDB is 96-bits
+            shortCode = Base62Convertor.convertToBase62(idGenerator.get()); // use snowflake algorithm to generate unique id
         }
         urlMapping.setShortCode(shortCode);
         urlMapping.setLongUrl(shortRequest.longUrl());
