@@ -1,10 +1,10 @@
 package com.projects.system.urlshortener.util;
 
-import java.util.Random;
+import java.security.SecureRandom;
 
 public class UniqueIdGenerator {
     private final long start = 1773683938791L; // 41 bits of timestamp
-    private final long instance = new Random().nextLong(0, 1 << 10L); // 10 bits of machine id
+    private final long instance = new SecureRandom().nextLong(0, 1 << 10L); // 10 bits of machine id
     private static final long maxSequence = 0xFFF; // 12 bits of sequence id
 
     private long sequence = 0L;

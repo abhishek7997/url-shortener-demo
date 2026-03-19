@@ -29,15 +29,25 @@ public class UrlMappingService {
     private final UrlMappingRepository urlMappingRepository;
     private final MongoTemplate mongoTemplate;
     private final UniqueIdGenerator idGenerator;
+    private final RedisDataService redisDataService;
 
     @Autowired
-    public UrlMappingService(UrlMappingRepository urlMappingRepository, MongoTemplate mongoTemplate) {
+    public UrlMappingService(UrlMappingRepository urlMappingRepository, MongoTemplate mongoTemplate, RedisDataService redisDataService) {
         this.urlMappingRepository = urlMappingRepository;
         this.mongoTemplate = mongoTemplate;
         this.idGenerator = new UniqueIdGenerator();
+        this.redisDataService = redisDataService;
     }
 
     public UrlMapping getLongUrlByShortCode(String shortCode) {
+        String longUrl = redisDataService.getLongUrl(shortCode);
+        if (longUrl != null) {
+            redisDataService.incrementHitCount(shortCode);
+            UrlMapping urlMapping = new UrlMapping();
+            urlMapping.setLongUrl(longUrl);
+            return urlMapping;
+        }
+
         Query query = new Query().addCriteria(Criteria.where("short_code").is(shortCode));
         Update update = new Update().inc("hits");
 
@@ -49,8 +59,11 @@ public class UrlMappingService {
 
         if (urlMapping.getExpireAt() != null && urlMapping.getExpireAt().isBefore(Instant.now())) {
 //            urlMappingRepository.deleteByShortCode(shortCode); // to be handled separately via CRON jobs or TTL indexes
+            redisDataService.removeShortCode(shortCode);
             throw new UrlExpiredException("Short code has expired");
         }
+
+        redisDataService.writeLongUrl(urlMapping);
 
         return urlMapping;
     }
@@ -89,8 +102,12 @@ public class UrlMappingService {
     public void deleteShortUrl(String shortCode) {
         Query query = new Query();
         query.addCriteria(Criteria.where("short_code").is(shortCode));
-
-        mongoTemplate.remove(query, UrlMapping.class);
-        log.info("Deleted short code: {}", shortCode);
+        try {
+            redisDataService.removeShortCode(shortCode);
+            mongoTemplate.remove(query, UrlMapping.class);
+            log.info("Deleted short code: {}", shortCode);
+        } catch (Exception e) {
+            log.error("Could not delete short code: {}", e.toString());
+        }
     }
 }

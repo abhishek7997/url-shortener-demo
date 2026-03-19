@@ -24,5 +24,5 @@ public class UrlMapping {
     @Field("expire_at")
     private Instant expireAt;
     @Field("hits")
-    private long hits = 0;
+    private Long hits;
 }
