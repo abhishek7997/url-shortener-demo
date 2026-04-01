@@ -32,10 +32,10 @@ public class UrlMappingService {
     private final RedisDataService redisDataService;
 
     @Autowired
-    public UrlMappingService(UrlMappingRepository urlMappingRepository, MongoTemplate mongoTemplate, RedisDataService redisDataService) {
+    public UrlMappingService(UrlMappingRepository urlMappingRepository, MongoTemplate mongoTemplate, UniqueIdGenerator uniqueIdGenerator, RedisDataService redisDataService) {
         this.urlMappingRepository = urlMappingRepository;
         this.mongoTemplate = mongoTemplate;
-        this.idGenerator = new UniqueIdGenerator();
+        this.idGenerator = uniqueIdGenerator;
         this.redisDataService = redisDataService;
     }
 
@@ -74,7 +74,7 @@ public class UrlMappingService {
         String shortCode = shortRequest.customShortCode();
         if (StringUtils.isBlank(shortRequest.customShortCode())) {
 //            shortCode = Base62Convertor.convertToBase62(new BigInteger(new ObjectId().toHexString(), 16)); // this generates slightly larger strings since ObjectID from mongoDB is 96-bits
-            shortCode = Base62Convertor.convertToBase62(idGenerator.get()); // use snowflake algorithm to generate unique id
+            shortCode = Base62Convertor.convertToBase62(idGenerator.get());
         }
         urlMapping.setShortCode(shortCode);
         URL longUrl = UrlNormalizer.normalize(shortRequest.longUrl());
