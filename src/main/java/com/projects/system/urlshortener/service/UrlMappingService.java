@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 
 import java.net.URL;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -42,6 +44,7 @@ public class UrlMappingService {
     public UrlMapping getLongUrlByShortCode(String shortCode) {
         String longUrl = redisDataService.getLongUrl(shortCode);
         if (longUrl != null) {
+            log.debug("Returning cached short code from redis: {}", shortCode);
             redisDataService.incrementHitCount(shortCode);
             UrlMapping urlMapping = new UrlMapping();
             urlMapping.setLongUrl(longUrl);
@@ -84,14 +87,18 @@ public class UrlMappingService {
         }
         urlMapping.setLongUrl(longUrl.toString());
         urlMapping.setCreatedAt(Instant.now());
-        urlMapping.setExpireAt(shortRequest.expireAt());
+        Instant expireAt = shortRequest.expireAt();
+        if (expireAt == null) {
+            expireAt = Instant.now().atOffset(ZoneOffset.UTC).plusYears(5).toInstant();
+        }
+        urlMapping.setExpireAt(expireAt);
 
         UrlMapping saved;
 
         try {
             saved = urlMappingRepository.save(urlMapping);
         } catch (DuplicateKeyException e) {
-            throw new UrlServiceException("Short code already in use");
+            throw new UrlServiceException(String.format("Short code '%s' already in use.",  shortCode));
         }
 
         log.info("Saved {} with short code {}", saved.getLongUrl(), saved.getShortCode());
@@ -100,14 +107,20 @@ public class UrlMappingService {
     }
 
     public void deleteShortUrl(String shortCode) {
-        Query query = new Query();
-        query.addCriteria(Criteria.where("short_code").is(shortCode));
         try {
             redisDataService.removeShortCode(shortCode);
-            mongoTemplate.remove(query, UrlMapping.class);
-            log.info("Deleted short code: {}", shortCode);
+            log.info("Deleted short code from cache: {}", shortCode);
         } catch (Exception e) {
-            log.error("Could not delete short code: {}", e.toString());
+            log.error("Could not delete short code from cache", e);
+        }
+
+        try {
+            Query query = new Query();
+            query.addCriteria(Criteria.where("short_code").is(shortCode));
+            mongoTemplate.remove(query, UrlMapping.class);
+            log.info("Deleted short code from database: {}", shortCode);
+        } catch (Exception e) {
+            log.error("Could not delete short code from database", e);
         }
     }
 }

@@ -22,7 +22,8 @@ public class UrlMapping {
     @Field("created_at")
     private Instant createdAt;
     @Field("expire_at")
+    @Indexed(name = "indexed_ttl_short", expireAfter = "0s")
     private Instant expireAt;
     @Field("hits")
-    private Long hits;
+    private Long hits = 0L;
 }
